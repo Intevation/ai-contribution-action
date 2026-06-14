@@ -6,3 +6,92 @@
 name: 'AI Contribution Detection'
 description: 'A GitHub Action checking if a contribution was made with AI'
 author: 'CSAF Tools Development Community'
+
+inputs:
+  fail-on-detection:
+    description: 'Exit with a non-zero status code when LLM co-authorship is detected'
+    required: false
+    default: 'true'
+
+runs:
+  composite:
+    steps:
+      - uses: actions/checkout@v6
+        with:  # fetch complete history, not just the last commit
+          fetch-depth: 0
+
+      - name: Check commits for LLM co-authors
+        id: llm-check
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          FAIL_ON_DETECTION: ${{ inputs.fail-on-detection }}
+        run: |
+          # LLM tool co-author patterns
+          # Examples:
+          # Co-authored-by: GitHub Copilot <copilot@github.com>
+          # Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+          # Co-authored-by: Claude <claude@users.noreply.github.com>
+          LLM_PATTERNS=(
+            'co-authored-by:.*(github-)?copilot'
+            'co-authored-by:.*claude'
+            'co-authored-by:.*chatgpt'
+            'co-authored-by:.*gemini'
+            'co-authored-by:.*cursor'
+            'co-authored-by:.*tabnine'
+            'co-authored-by:.*codeium'
+            'co-authored-by:.*amazon q'
+            'co-authored-by:.*continue'
+          )
+
+          BOT_AUTHOR_PATTERNS=(
+            'github-copilot\[bot\]'
+            'copilot-swe-agent'
+            'devin-ai-integration\[bot\]'
+            'sweep-ai\[bot\]'
+            'coderabbit-ai\[bot\]'
+            'autofix-ci\[bot\]'
+            'cursor-ai'
+          )
+
+          FOUND_COMMITS=""
+          FOUND_ANY=false
+
+          while IFS= read -r commit; do
+            # Check commit messages
+            msg=$(git show -s --format="%B" "$commit")
+            author=$(git show -s --format="%an <%ae>" "$commit")
+            subject=$(git show -s --format="%s" "$commit")
+
+            for pattern in "${LLM_PATTERNS[@]}"; do
+              if echo "$msg" | grep -iqE "$pattern"; then
+                short=$(git show -s --format="%h" "$commit")
+                FOUND_COMMITS="${FOUND_COMMITS}\n- \`${short}\` -${subject} (matched: \`${pattern}\`)"
+                FOUND_ANY=true
+                break
+              fi
+            done
+
+            # Check commit authors
+            bot_pattern=$(IFS='|'; echo "${BOT_AUTHOR_PATTERNS[*]}")
+            if echo "$author" | grep -iqE "$bot_pattern"; then
+              short=$(git show -s --format="%h" "$commit")
+              FOUND_COMMITS="${FOUND_COMMITS}\n- \`${short}\`: ${subject} (LLM bot author: ${author})"
+              FOUND_ANY=true
+            fi
+          done < <(git log --format="%H" "${BASE_SHA}..${HEAD_SHA}")
+
+          if $FOUND_ANY; then
+            echo "LLM co-authorship detected in the following commits:" >&2
+            echo -e "$FOUND_COMMITS" >&2
+            {
+              echo "### LLM co-authorship detected"
+              echo ""
+              echo "One or more commits appear to have been (co-)authored by an LLM tool:"
+              echo ""
+              echo -e "$FOUND_COMMITS"
+            } >> "$GITHUB_STEP_SUMMARY"
+            if [[ "$FAIL_ON_DETECTION" == "true" ]]; then
+              exit 1
+            fi
+          fi
