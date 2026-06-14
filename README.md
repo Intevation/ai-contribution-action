@@ -28,9 +28,13 @@ name: Check for AI co-authorships
 on:
   pull_request:
 
+permissions: {}
+
 jobs:
   ai-coauthorship-check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: Intevation/ai-contribution-action@main
 ```
