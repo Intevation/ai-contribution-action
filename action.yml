@@ -22,6 +22,7 @@ runs:
 
     - name: Check commits for LLM co-authors
       id: llm-check
+      shell: bash
       env:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
