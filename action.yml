@@ -12,6 +12,10 @@ inputs:
     description: 'Exit with a non-zero status code when LLM co-authorship is detected'
     required: false
     default: 'true'
+  comment-on-detection:
+    description: Post a PR comment when LLM co-authorship is detected
+    required: false
+    default: 'false'
 
 runs:
   using: composite
@@ -27,6 +31,10 @@ runs:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         FAIL_ON_DETECTION: ${{ inputs.fail-on-detection }}
+        COMMENT_ON_DETECTION: ${{ inputs.comment-on-detection }}
+        GH_TOKEN: ${{ github.token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        REPO: ${{ github.repository }}
       run: |
         # LLM tool co-author patterns
         # Examples:
@@ -83,15 +91,20 @@ runs:
         done < <(git log --format="%H" "${BASE_SHA}..${HEAD_SHA}")
 
         if $FOUND_ANY; then
-          echo "LLM co-authorship detected in the following commits:" >&2
-          echo -e "$FOUND_COMMITS" >&2
-          {
+          REPORT="$(
             echo "### LLM co-authorship detected"
             echo ""
             echo "One or more commits appear to have been (co-)authored by an LLM tool:"
             echo ""
             echo -e "$FOUND_COMMITS"
-          } >> "$GITHUB_STEP_SUMMARY"
+          )"
+          echo "$REPORT" >&2
+          echo "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$COMMENT_ON_DETECTION" == "true" ]]; then
+            gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+              --method POST \
+              --field body="$REPORT"
+          fi
           if [[ "$FAIL_ON_DETECTION" == "true" ]]; then
             exit 1
           fi

@@ -44,6 +44,24 @@ jobs:
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `fail-on-detection` | No | `true` | Exit with a non-zero status code when LLM co-authorship is detected. Set to `false` to only report. |
+| `comment-on-detection` | No | `false` | Post a PR comment when LLM (co-)authorship is detected. |
+
+### Post a PR comment on detection
+
+Requires `pull-requests: write` permission:
+
+```yaml
+jobs:
+  ai-coauthorship-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: Intevation/ai-contribution-action@main
+        with:
+          comment-on-detection: true
+```
 
 
 ## License
