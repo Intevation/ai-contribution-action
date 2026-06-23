@@ -61,6 +61,7 @@ runs:
           'coderabbit-ai\[bot\]'
           'autofix-ci\[bot\]'
           'cursor-ai'
+          'claude@anthropic\.com'
         )
 
         FOUND_COMMITS=""
