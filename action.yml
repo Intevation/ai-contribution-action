@@ -73,20 +73,20 @@ runs:
           author=$(git show -s --format="%an <%ae>" "$commit")
           subject=$(git show -s --format="%s" "$commit")
 
-          for pattern in "${LLM_COAUTHOR_PATTERNS[@]}"; do
-            if echo "$msg" | grep -iqE "$pattern"; then
+          for coauthor_pattern in "${LLM_COAUTHOR_PATTERNS[@]}"; do
+            if echo "$msg" | grep -iqE "$coauthor_pattern"; then
               short=$(git show -s --format="%h" "$commit")
-              FOUND_COMMITS="${FOUND_COMMITS}\n- \`${short}\` -${subject} (matched: \`${pattern}\`)"
+              FOUND_COMMITS="${FOUND_COMMITS}\n- \`${short}\` ${subject} (co-author matched: \`${coauthor_pattern}\`)"
               FOUND_ANY=true
               break
             fi
           done
 
           # Check commit authors
-          bot_pattern=$(IFS='|'; echo "${LLM_AUTHOR_PATTERNS[*]}")
-          if echo "$author" | grep -iqE "$bot_pattern"; then
+          author_pattern=$(IFS='|'; echo "${LLM_AUTHOR_PATTERNS[*]}")
+          if echo "$author" | grep -iqE "$author_pattern"; then
             short=$(git show -s --format="%h" "$commit")
-            FOUND_COMMITS="${FOUND_COMMITS}\n- \`${short}\`: ${subject} (LLM bot author: ${author})"
+            FOUND_COMMITS="${FOUND_COMMITS}\n- \`${short}\` ${subject} (author matched: \`${author}\`)"
             FOUND_ANY=true
           fi
         done < <(git log --format="%H" "${BASE_SHA}..${HEAD_SHA}")
